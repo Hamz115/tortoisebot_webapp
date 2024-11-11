@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+    <!-- Map -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/easeljs/lib/easeljs.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/eventemitter2/lib/eventemitter2.min.js"></script>
+    <script type="text/javascript" src="https://s3.eu-west-1.amazonaws.com/rosject.io/js/roslib.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/ros2d/build/ros2d.min.js"></script>
+
+    <!-- Camera -->
+    <script type="text/javascript" src="./libs/mjpegcanvas.min.js"></script>
+
+    <!-- Vuejs -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
+
+    <!-- visualization -->
+    <script src="./libs/three.js"></script>
+    <script src="./libs/ColladaLoader.js"></script>
+    <script src="./libs/ColladaLoader2.js"></script>
+    <script src="./libs/STLLoader.js"></script>
+    <script src="./libs/ros3d.min.js"></script>
+
+    <style>
+        body {
+            background-color: #B2FFFF;
+            color: black;
+        }
+
+        .card {
+            background-color: #F0E68C;
+            border: 1px solid #333;
+            margin-bottom: 0.25rem;
+        }
+
+        .card-header {
+            padding: 0.25rem 0.5rem;
+        }
+
+        .card-body {
+            padding: 0.25rem;
+            color: #002244;
+        }
+
+        h5,
+        h6 {
+            font-size: 0.9rem !important;
+            margin-bottom: 0.25rem !important;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            border-color: #28a745;
+            padding: 0.25rem !important;
+            font-size: 0.8rem !important;
+        }
+
+        .btn-wayp {
+            font-weight: bold;
+            padding: 0.15rem 0.3rem !important;
+            margin: 0 !important;
+            font-size: 0.75rem !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            text-align: center !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background-color: black;
+        }
+
+        .btn-wayp:hover {
+            background-color: gold;
+            color: white;
+        }
+
+        .btn-danger {
+            background-color: #1e1e1e;
+            border-color: #dc3545;
+            padding: 0.25rem !important;
+            font-size: 0.8rem !important;
+        }
+
+        input {
+            background-color: #333;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            padding: 0.15rem 0.3rem !important;
+            height: calc(1.2em + 0.4rem + 2px) !important;
+            font-size: 0.75rem !important;
+        }
+
+        .console {
+            background-color: #000;
+            color: #e0e0e0;
+            font-family: monospace;
+            padding: 5px !important;
+            height: 120px !important;
+            overflow-y: auto;
+            border: 1px solid #333;
+            text-align: left;
+            font-size: 0.7rem !important;
+        }
+
+        .command {
+            background-color: #dfd3c3;
+        }
+
+        .model {
+            background-color: red;
+            color: white;
+        }
+
+        .map {
+            background-color: white;
+        }
+
+        .cam {
+            background-color: #b5592a;
+            color: white;
+        }
+
+        .joy {
+            background-color: #49493c;
+            color: white;
+        }
+
+        .con {
+            background-color: white;
+        }
+
+        .text-success {
+            color: #28a745 !important;
+            margin-left: 10px;
+        }
+
+        .small {
+            font-size: 0.7rem !important;
+        }
+
+        #dragstartzone {
+            position: relative;
+            display: inline-block;
+            width: 120px;
+            height: 120px;
+            border: 1px solid black;
+            border-radius: 50%;
+            z-index: 10;
+            -moz-user-select: -moz-none;
+            -khtml-user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #dragCircle {
+            position: absolute;
+            z-index: 9;
+            border: 1px solid transparent;
+            border-radius: 50%;
+            background-color: grey;
+            -moz-user-select: -moz-none;
+            -khtml-user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #dragCircle:hover {
+            background-color: green;
+        }
+
+        .waypoint-grid {
+            display: grid;
+            grid-template-columns: repeat(1, 1fr);
+            gap: 0.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-panel {
+            border-left: 1px solid #ccc;
+            padding-left: 0.5rem;
+            height: 100%;
+            font-size: 0.75rem;
+        }
+
+        .status-panel hr {
+            margin: 0.25rem 0;
+        }
+
+        .viewer-container {
+            height: 300px !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app" class="container-fluid">
+        <div class="row">
+            <!-- Left Column -->
+            <div class="col-3">
+                <!-- Connection Status -->
+                <div class="card mt-2" style="height: 120px;">
+                    <div class="card-body p-2">
+                        <h5>Connection Status</h5>
+                        <label class="mb-0">ROSBridge address</label>
+                        <input type="text" v-model="rosbridge_address" class="form-control form-control-sm mb-1" />
+                        <span class="text-success" v-if="connected">Connected</span>
+                        <button :disabled="loading" class="btn btn-sm btn-danger mt-1" @click="disconnect"
+                            v-if="connected">Disconnect</button>
+                        <button :disabled="loading" class="btn btn-sm btn-success mt-1" @click="connect"
+                            v-else>Connect</button>
+                    </div>
+                </div>
+
+                <!-- Console Logs -->
+                <div class="card mt-2" style="height: 150px;">
+                    <div class="card-header con py-1">
+                        <h6 class="mb-0">Console Logs</h6>
+                    </div>
+                    <div class="card-body console p-2">
+                        <p v-for="log in logs" class="mb-1 small">{{ log }}</p>
+                    </div>
+                </div>
+
+                <!-- Commands -->
+                <div class="card mt-2" style="height: calc(100vh - 300px);">
+                    <div class="card-header command py-1">
+                        <h6 class="mb-0">Commands</h6>
+                    </div>
+                    <div class="card-body command p-2">
+                        <!-- Waypoints Row -->
+                        <div class="waypoint-grid">
+                            <button :disabled="loading" class="btn btn-primary btn-wayp text-center"
+                                @click="setGoal(0.7, -0.5)">Waypoint 1</button>
+                            <button :disabled="loading" class="btn btn-primary btn-wayp text-center"
+                                @click="setGoal(0.65, 0.35)">Waypoint 2</button>
+                            <button :disabled="loading" class="btn btn-primary btn-wayp text-center"
+                                @click="setGoal(0.2, 0.45)">Waypoint 3</button>
+                            <button :disabled="loading" class="btn btn-primary btn-wayp text-center"
+                                @click="setGoal(0.2, 0.0)">Waypoint 4</button>
+                            <button :disabled="loading" class="btn btn-primary btn-wayp text-center"
+                                @click="setGoal(-0.1, 0.05)">Waypoint 5</button>
+                            <button :disabled="loading" class="btn btn-primary btn-wayp text-center"
+                                @click="setGoal(-0.2, 0.45)">Waypoint 6</button>
+                            <button :disabled="loading" class="btn btn-primary btn-wayp text-center"
+                                @click="setGoal(-0.6, 0.55)">Waypoint 7</button>
+                            <button :disabled="loading" class="btn btn-primary btn-wayp text-center"
+                                @click="setGoal(-0.2, -0.45)">Waypoint 8</button>
+                            <button :disabled="loading" class="btn btn-primary btn-wayp text-center"
+                                @click="setGoal(-0.58, -0.55)">Waypoint 9</button>
+                        </div>
+
+                        <!-- Control Buttons -->
+                        <div class="d-flex justify-content-between mt-2">
+                            <button :disabled="loading" class="btn btn-success flex-grow-1 mr-1" @click="sendGoal">Send
+                                Goal</button>
+                            <button :disabled="loading" class="btn btn-danger flex-grow-1 ml-1"
+                                @click="cancelGoal">Cancel Goal</button>
+                        </div>
+
+                        <!-- Position Information -->
+                        <div class="position-info mt-3">
+                            <p class="text-success mb-1">{{ action.status.text }}</p>
+                            <hr class="my-1">
+                            <div class="d-flex justify-content-between">
+                                <div class="position-block">
+                                    <p class="mb-1">Current Position:</p>
+                                    <div class="d-flex justify-content-start">
+                                        <small class="mr-3">x: {{ action.feedback.position.x }}</small>
+                                        <small>y: {{ action.feedback.position.y }}</small>
+                                    </div>
+                                </div>
+                                <div class="position-block">
+                                    <p class="mb-1">Goal Position:</p>
+                                    <div class="d-flex justify-content-start">
+                                        <small class="mr-3">x: {{ action.goal.position.x.toFixed(2) }}</small>
+                                        <small>y: {{ action.goal.position.y.toFixed(2) }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <hr class="my-1">
+                            <p class="text-center mb-0">Success: {{ action.result.success }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="col-9">
+                <div class="row">
+                    <!-- Top Row -->
+                    <div class="col-6">
+                        <div class="card mt-2" style="height: calc(50vh - 15px);">
+                            <div class="card-header model py-1">
+                                <h6 class="mb-0">Robot Model</h6>
+                            </div>
+                            <div class="card-body model p-0">
+                                <div id="div3DViewer" class="viewer-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="card mt-2" style="height: calc(50vh - 15px);">
+                            <div class="card-header map py-1">
+                                <h6 class="mb-0">Generated Map</h6>
+                            </div>
+                            <div class="card-body map p-0">
+                                <div id="map" class="viewer-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Bottom Row -->
+                <div class="row">
+                    <div class="col-6">
+                        <div class="card mt-2" style="height: calc(50vh - 15px);">
+                            <div class="card-header cam py-1">
+                                <h6 class="mb-0">Camera</h6>
+                            </div>
+                            <div class="card-body cam p-0">
+                                <div id="divCamera" class="viewer-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="card mt-2" style="height: calc(50vh - 15px);">
+                            <div class="card-header joy py-1">
+                                <h6 class="mb-0">Joystick Control</h6>
+                            </div>
+                            <div class="card-body joy p-2">
+                                <div id="dragstartzone" @mousedown="startDrag" @mousemove="doDrag"></div>
+                                <div id="dragCircle" :style="dragCircleStyle"></div>
+                                <div class="mt-2">
+                                    <small>Linear: {{1* joystick.vertical.toFixed(3) }}</small>
+                                    <small class="ml-2">Angular: {{1* joystick.horizontal.toFixed(3) }}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        var script = document.createElement('script');
+        script.type = 'text/javascript';
+        script.src = 'main.js?v=11.' + Date.now();
+        document.head.appendChild(script);
+    </script>
+</body>
+
+</html>
